@@ -1,0 +1,22 @@
+```mermaid
+graph TD;
+    A[Start]-->B[Get list of files in folder];
+    B-->C{For each file};
+    C-- Yes -->D[Create a DataFrame];
+    D-- Yes -->E[Split the DataFrame];
+    E-- Yes -->F[Create destination folder];
+    F-->G[Export data to CSV files];
+    C-- No -->H[Skip file];
+    H-->B;
+    A-->I[Loop through subfolders];
+    I-->J[Create sheet name from folder name];
+    J-->K[Check if sheet with matching name already exists];
+    K-- Yes -->L[Append data frames to existing sheet];
+    K-- No -->M[Create a new sheet];
+    M-->N[Read CSV file into Pandas data frame];
+    N-->O[Add data frames to list];
+    O-- Yes -->P[Combine data frames];
+    O-- No -->Q[Skip file];
+    Q-->I;
+    P-->R[Write data to Excel file];
+    R-->S[End];

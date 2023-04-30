@@ -1,0 +1,13 @@
+```mermaid
+graph TD;
+    load_image--> crop_image;
+    crop_image --> resize_image;
+    resize_image --> threshold_image;
+    threshold_image --> find_edges;
+    find_edges --> find_lines;
+    find_lines --> filter_lines;
+    filter_lines --> cluster_lines;
+    cluster_lines --> find_bases;
+    find_bases --> find_tips;
+    find_tips --> draw_output;
+    draw_output --> done;
