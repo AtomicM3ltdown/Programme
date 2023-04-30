@@ -3,7 +3,7 @@ import pandas as pd
 import shutil
 import glob
 import matplotlib as plt
-#test
+
 folder_path = r'D:/Nextcloud/Vulkameter/Rohdaten'
 versuche_path = 'D:/Nextcloud/Vulkameter/Versuche'
 
