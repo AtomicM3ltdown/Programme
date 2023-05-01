@@ -77,6 +77,6 @@ def process_folder(folder_path, excel_writer):
             df2_list.append(df2)
     if len(df2_list) == 0:
         return  # No CSV files found, skip
-     df1 = pd.concat(df1_list, ignore_index=True)
+    df1 = pd.concat(df1_list, ignore_index=True)
     df2 = pd.concat(df2_list, ignore_index=True)
     df2.insert(0, 'Folder name', folder)
