@@ -169,11 +169,12 @@ def plot(master_folder):
         else:
             print(f"No CSV file found in {folder_path}.")
 '''
-df_excel = load_excel_sheet(r'D:/Nextcloud/Vulkameter/Average.xlsx', 'Tabelle2')
+if __name__ == "__main__":
+    df_excel = load_excel_sheet(r'D:/Nextcloud/Vulkameter/Average.xlsx', 'Tabelle2')
 
-# print(df_excel['Rdatafile'])
-basenames = extract_file_basename(folder_path, 'txt')
-# print(basenames)
-move_files_to_destination_folder(folder_path, 'txt', df_excel, versuche_path)
-load_txt_files_into_dataframe(versuche_path)
-#plot(versuche_path)
+    # print(df_excel['Rdatafile'])
+    basenames = extract_file_basename(folder_path, 'txt')
+    # print(basenames)
+    move_files_to_destination_folder(folder_path, 'txt', df_excel, versuche_path)
+    load_txt_files_into_dataframe(versuche_path)
+    #plot(versuche_path)
