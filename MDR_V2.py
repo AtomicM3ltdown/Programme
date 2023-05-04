@@ -7,7 +7,7 @@ import matplotlib as plt
 folder_path = r'D:/Nextcloud/Vulkameter/Rohdaten'
 versuche_path = 'D:/Nextcloud/Vulkameter/Versuche'
 
-
+'''
 def load_excel_sheet(file_path, sheet_name):
     """Loads an Excel sheet into a Pandas DataFrame."""
     return pd.read_excel(file_path, sheet_name=sheet_name)
@@ -136,7 +136,7 @@ def plot(master_folder):
         # If a CSV file was found, load it into a pandas DataFrame
         if csv_file is not None:
             data = pd.read_csv(csv_file)
-
+            print(data)
             # Extract the x and y data from the DataFrame
             x_data = data['Time (s)'] / 60
             y_data = data['Mean']
@@ -168,8 +168,9 @@ def plot(master_folder):
 
         else:
             print(f"No CSV file found in {folder_path}.")
-'''
+
 if __name__ == "__main__":
+    '''
     df_excel = load_excel_sheet(r'D:/Nextcloud/Vulkameter/Average.xlsx', 'Tabelle2')
 
     # print(df_excel['Rdatafile'])
@@ -177,4 +178,5 @@ if __name__ == "__main__":
     # print(basenames)
     move_files_to_destination_folder(folder_path, 'txt', df_excel, versuche_path)
     load_txt_files_into_dataframe(versuche_path)
-    #plot(versuche_path)
+    '''
+    plot(versuche_path)

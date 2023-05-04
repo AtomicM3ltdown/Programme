@@ -11,7 +11,7 @@ excel_file_path = "D:/Nextcloud/Zugdehnung/Ergebnis_CSV/Zwickdaten.xlsx"
 for folder_name in os.listdir(master_folder_path):
     folder_path = os.path.join(master_folder_path, folder_name)
     if os.path.isdir(folder_path):
-        print('x')
+        print(folder_path)
         # Create sheet name from folder name
         sheet_name = folder_name
         data_frames = []
