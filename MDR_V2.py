@@ -7,7 +7,7 @@ import matplotlib as plt
 folder_path = r'D:/Nextcloud/Vulkameter/Rohdaten'
 versuche_path = 'D:/Nextcloud/Vulkameter/Versuche'
 
-'''
+
 def load_excel_sheet(file_path, sheet_name):
     """Loads an Excel sheet into a Pandas DataFrame."""
     return pd.read_excel(file_path, sheet_name=sheet_name)
@@ -77,7 +77,7 @@ def load_txt_files_into_dataframe(master_folder_path):
         txt_files = glob.glob(os.path.join(folder_path, "*.txt"))
 
         # Check if there are exactly 3 txt files in the folder
-        if len(txt_files) == 3:
+        if len(txt_files) >= 3:
             y = len(txt_files)
             print(y)
 
@@ -168,9 +168,9 @@ def plot(master_folder):
 
         else:
             print(f"No CSV file found in {folder_path}.")
-
+'''
 if __name__ == "__main__":
-    '''
+    
     df_excel = load_excel_sheet(r'D:/Nextcloud/Vulkameter/Average.xlsx', 'Tabelle2')
 
     # print(df_excel['Rdatafile'])
@@ -178,5 +178,5 @@ if __name__ == "__main__":
     # print(basenames)
     move_files_to_destination_folder(folder_path, 'txt', df_excel, versuche_path)
     load_txt_files_into_dataframe(versuche_path)
-    '''
-    plot(versuche_path)
+    
+    #plot(versuche_path)

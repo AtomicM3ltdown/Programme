@@ -1,0 +1,77 @@
+import os
+import pandas as pd
+import dash
+from dash import html
+from dash import dcc
+import plotly.express as px
+
+# Create a Dash app
+app = dash.Dash(__name__)
+
+# Specify the folder path
+folder_path = r'D:\Nextcloud\Vulkameter\Versuche'
+
+# Initialize an empty DataFrame for df_mdr
+df_mdr = pd.DataFrame()
+
+# Loop through the folders and look for CSV files
+for root, dirs, files in os.walk(folder_path):
+    for file in files:
+        if file.endswith('.csv'):
+            # Extract the experiment name from the filename
+            experiment_name = os.path.splitext(file)[0]
+
+            # Read the CSV file
+            file_path = os.path.join(root, file)
+            experiment_data = pd.read_csv(file_path)
+
+            # Add the experiment name as a new column
+            experiment_data['Experiment'] = experiment_name
+
+            # Concatenate the data to df_mdr
+            df_mdr = pd.concat([df_mdr, experiment_data])
+
+# Sample data for demonstration (if df_mdr is empty)
+if df_mdr.empty:
+    df_mdr = pd.DataFrame({'Experiment': ['A', 'B', 'C'],
+                           'Value': [10, 15, 12]})
+
+# Define the layout of the Dash app
+app.layout = html.Div([
+    html.H1('Experiment Results'),
+    dcc.Dropdown(
+        id='experiment-dropdown',
+        options=[{'label': experiment, 'value': experiment}
+                 for experiment in df_mdr['Experiment'].unique()],
+        value=df_mdr['Experiment'].iloc[0]
+    ),
+    html.Div(id='selected-experiment-output'),
+    html.Div([
+        dcc.Graph(id='mdr-graph'),
+        dcc.Graph(id='zwick-graph')
+    ]),
+    html.Div(id='zwick-table')
+])
+
+
+@app.callback(
+    dash.dependencies.Output('selected-experiment-output', 'children'),
+    dash.dependencies.Input('experiment-dropdown', 'value')
+)
+def update_selected_experiment(value):
+    return html.H3(f'Selected Experiment: {value}')
+
+
+@app.callback(
+    dash.dependencies.Output('mdr-graph', 'figure'),
+    dash.dependencies.Input('experiment-dropdown', 'value')
+)
+def update_mdr_graph(value):
+    filtered_df = df_mdr[df_mdr['Experiment'] == value]
+    fig = px.bar(filtered_df, x='Experiment', y='Value', title='MDR Experiment Results')
+    return fig
+
+
+# Run the Dash app
+if __name__ == '__main__':
+    app.run_server(debug=True)
