@@ -29,12 +29,14 @@ for folder in os.listdir(master_folder):
 
                 # Plot the data and add labels and deviation as shaded region
                 fig, ax = plt.subplots()
+
                 ax.plot(x_data, y_data, label=f'{folder}')
                 ax.fill_between(x_data, y_data - data['Deviation'], y_data + data['Deviation'], alpha=0.3, label=None)
                 ax.set_xlabel('Time (min)')
                 ax.set_ylabel('Torque (dNm)')
                 ax.set_title(f'{folder}')
                 tick_spacing = 1
+                plt.tick_params(axis='both', direction='in')
                 ax.xaxis.set_major_locator(plt.MultipleLocator(tick_spacing))
                 ax.yaxis.set_major_locator(plt.MultipleLocator(tick_spacing))
                 plt.autoscale(enable=True, axis='both')
