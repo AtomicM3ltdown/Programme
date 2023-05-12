@@ -1,64 +1,67 @@
-import re
 import pandas as pd
+import re
 
-# Prompt the user to enter the file path
-file_path = "C:/Users/jensc/Desktop/Timestamp.csv"
+# Read the CSV file into a pandas DataFrame
+df = pd.read_csv('C:/Users/jensc/Desktop/Timestamp.csv', header=None, names=['data']).reset_index()
 
-try:
-    # Initialize empty lists to store the extracted data
-    arbeitsbeginn_lines = []
-    arbeitsende_lines = []
+# Initialize empty DataFrames for pairs and unmatched entries
+pairs_df = pd.DataFrame(columns=['Arbeitsbeginn', 'Arbeitsende'])
+unmatched_df = pd.DataFrame(columns=['Arbeitsbeginn'])
 
-    with open(file_path, 'r', encoding='cp1252') as file:
-        # Read the contents of the file
-        contents = file.readlines()
+# Initialize variables to keep track of the previous 'Arbeitsbeginn' and its date
+prev_begin = None
+prev_begin_date = None
 
-        # Iterate over each line in the file
-        for line in contents:
-            # Use regular expressions to extract the date and time
-            match = re.search(r'\d{4}-\d{2}-\d{2} \| \d{2}:\d{2}', line)
+# Iterate over each row in the DataFrame
+for index, row in df.iterrows():
+    entry = row['data']  # Replace 'your_column_name' with the actual column name
 
-            if match:
-                date_time = match.group()
-                date, time = date_time.split(' | ')
+    # Check if the entry contains 'Arbeitsbeginn'
+    if 'Arbeitsbeginn' in entry:
+        # Extract the date and time from the entry
+        date = entry[15:25]
+        time = entry[-5:]
+        print(date)
 
-                # Check if it is 'Arbeitsbeginn' or 'Arbeitsende'
-                if 'Arbeitsbeginn' in line:
-                    arbeitsbeginn_lines.append({'Arbeitsbeginn': line.strip(), 'Date_start': date, 'Time_start': time})
-                elif 'Arbeitsende' in line:
-                    arbeitsende_lines.append({'Arbeitsende': line.strip(), 'Date_end': date, 'Time_end': time})
+        # Check if there was a previous 'Arbeitsbeginn'
+        if prev_begin is not None:
+            # Check if the previous 'Arbeitsbeginn' and the current entry have the same date
+            if prev_begin_date == date:
+                # Check if the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende'
+                if prev_begin not in pairs_df['Arbeitsbeginn'].values:
+                    # Add the pair to pairs_df
+                    pairs_df = pd.concat([pairs_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin], 'Arbeitsende': [entry]})], ignore_index=True)
+                else:
+                    # If the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende',
+                    # add it to the unmatched entries DataFrame
+                    unmatched_df = pd.concat([unmatched_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin]})], ignore_index=True)
 
-    # Create DataFrames from the extracted data
-    df_arbeitsbeginn = pd.DataFrame(arbeitsbeginn_lines)
-    df_arbeitsende = pd.DataFrame(arbeitsende_lines)
+        # Update the previous 'Arbeitsbeginn' and its date
+        prev_begin = entry
+        prev_begin_date = date
 
-    # Remove duplicates from the DataFrames based on column 1 (Date_start)
-    date_index = pd.date_range('1/12/2022', periods=365, freq='D')
-    df_arbeitsbeginn = df_arbeitsbeginn.sort_values('Time_start').drop_duplicates(subset='Date_start', keep='first')
-    df_arbeitsbeginn = df_arbeitsbeginn.sort_values('Date_start')
-    df_arbeitsbeginn.dropna()
-    df_arbeitsbeginn.reindex(date_index)
-    print(df_arbeitsbeginn)
+    # Check if the entry contains 'Arbeitsende'
+    elif 'Arbeitsende' in entry:
+        # Extract the date and time from the entry
+        date = entry[15:25]
+        time = entry[-5:]
 
-    df_arbeitsende = df_arbeitsende.sort_values('Time_end').drop_duplicates(subset='Date_end', keep='last')
-    df_arbeitsende = df_arbeitsende.sort_values('Date_end')
-    df_arbeitsende.dropna()
-    df_arbeitsende.reindex(date_index)
-    df_arbeitsbeginn.reindex_like(df_arbeitsende)
-    print(df_arbeitsende)
-    # Merge the DataFrames on the 'Date' and 'Time' columns
-    df_merged = pd.concat([df_arbeitsbeginn, df_arbeitsende], axis=1)
-    #print(df_merged)
+        # Check if the previous 'Arbeitsbeginn' has a matching 'Arbeitsende'
+        if prev_begin_date == date:
+            # Check if the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende'
+            if prev_begin not in pairs_df['Arbeitsbeginn'].values:
+                # Add the pair to pairs_df
+                pairs_df = pd.concat([pairs_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin], 'Arbeitsende': [entry]})], ignore_index=True)
+            else:
+                # If the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende',
+                # add it to the unmatched entries DataFrame
+                unmatched_df = pd.concat([unmatched_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin]})], ignore_index=True)
 
-    # Sort the DataFrame by column 1 and 4 to have the same date in each row
-    df_merged = df_merged.sort_values(['Date_start', 'Date_end']).reset_index(drop=True)
-
-    # Print the modified DataFrame
-    #print(df_merged)
-
-except FileNotFoundError:
-    print('File not found. Please enter a valid file path.')
-
+# Print the resulting DataFrames
+print("Pairs:")
+print(pairs_df)
+print("\nUnmatched:")
+print(unmatched_df)
 
 
 
