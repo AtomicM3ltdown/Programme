@@ -5,12 +5,11 @@ import re
 df = pd.read_csv('C:/Users/jensc/Desktop/Timestamp.csv', header=None, names=['data']).reset_index()
 
 # Initialize empty DataFrames for pairs and unmatched entries
-pairs_df = pd.DataFrame(columns=['Arbeitsbeginn', 'Arbeitsende'])
-unmatched_df = pd.DataFrame(columns=['Arbeitsbeginn'])
+pairs_df = pd.DataFrame(columns=['Arbeitsbeginn', 'Arbeitsende', 'Beginn Time', 'End Time', 'Time Difference'])
+unmatched_df = pd.DataFrame(columns=['Arbeitsbeginn', 'Beginn Time'])
 
-# Initialize variables to keep track of the previous 'Arbeitsbeginn' and its date
-prev_begin = None
-prev_begin_date = None
+# Initialize the sum of time differences
+total_time_diff = pd.Timedelta(seconds=0)
 
 # Iterate over each row in the DataFrame
 for index, row in df.iterrows():
@@ -20,47 +19,41 @@ for index, row in df.iterrows():
     if 'Arbeitsbeginn' in entry:
         # Extract the date and time from the entry
         date = entry[15:25]
-        time = entry[-5:]
-        print(date)
+        time = entry[28:33]
 
-        # Check if there was a previous 'Arbeitsbeginn'
-        if prev_begin is not None:
-            # Check if the previous 'Arbeitsbeginn' and the current entry have the same date
-            if prev_begin_date == date:
-                # Check if the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende'
-                if prev_begin not in pairs_df['Arbeitsbeginn'].values:
-                    # Add the pair to pairs_df
-                    pairs_df = pd.concat([pairs_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin], 'Arbeitsende': [entry]})], ignore_index=True)
-                else:
-                    # If the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende',
-                    # add it to the unmatched entries DataFrame
-                    unmatched_df = pd.concat([unmatched_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin]})], ignore_index=True)
+        # Check if there is a corresponding 'Arbeitsende' entry with the same date
+        end_entry = df[(df['data'].str.contains('Arbeitsende')) & (df['data'].str.contains(date))]
+        if not end_entry.empty:
+            # Extract the end time from the 'Arbeitsende' entry
+            end_time = end_entry.iloc[0]['data'][26:31]
+            # Calculate the time difference
+            begin_time = pd.to_datetime(time, format='%H:%M')
+            end_time = pd.to_datetime(end_time, format='%H:%M')
+            time_diff = end_time - begin_time
 
-        # Update the previous 'Arbeitsbeginn' and its date
-        prev_begin = entry
-        prev_begin_date = date
+            # Add the pair to pairs_df with date, time, end time, and time difference
+            pairs_df = pd.concat([pairs_df, pd.DataFrame({'Arbeitsbeginn': [entry], 'Arbeitsende': [end_entry.iloc[0]['data']],
+                                                          'Beginn Time': [time], 'End Time': [end_time],
+                                                          'Time Difference': [time_diff]})], ignore_index=True)
 
-    # Check if the entry contains 'Arbeitsende'
-    elif 'Arbeitsende' in entry:
-        # Extract the date and time from the entry
-        date = entry[15:25]
-        time = entry[-5:]
+            # Add the time difference to the total sum
+            total_time_diff += time_diff
+        else:
+            # If there is no matching 'Arbeitsende' entry, add it to the unmatched entries DataFrame with date and time
+            unmatched_df = pd.concat([unmatched_df, pd.DataFrame({'Arbeitsbeginn': [entry], 'Beginn Time': [time]})], ignore_index=True)
 
-        # Check if the previous 'Arbeitsbeginn' has a matching 'Arbeitsende'
-        if prev_begin_date == date:
-            # Check if the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende'
-            if prev_begin not in pairs_df['Arbeitsbeginn'].values:
-                # Add the pair to pairs_df
-                pairs_df = pd.concat([pairs_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin], 'Arbeitsende': [entry]})], ignore_index=True)
-            else:
-                # If the previous 'Arbeitsbeginn' already has a matching 'Arbeitsende',
-                # add it to the unmatched entries DataFrame
-                unmatched_df = pd.concat([unmatched_df, pd.DataFrame({'Arbeitsbeginn': [prev_begin]})], ignore_index=True)
+# Convert total_time_diff to hours
+total_hours = total_time_diff.total_seconds() // 3600
 
 # Print the resulting DataFrames
 print("Pairs:")
 print(pairs_df)
 print("\nUnmatched:")
+print(unmatched_df)
+# Print the total sum of time differences in hours
+print("\nTotal Time Difference (in hours):")
+print(f"{total_hours} hours")
+print(total_time_diff)
 print(unmatched_df)
 
 
