@@ -1,0 +1,4 @@
+DataCars <- mtcars
+
+
+summary(DataCars)
