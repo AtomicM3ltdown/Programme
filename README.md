@@ -1,2 +1,2 @@
 # Programme
- Progrmmae für die Promotion
+ Progrmme für die Promotion
