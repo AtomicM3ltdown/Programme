@@ -1,78 +1,187 @@
+import tkinter as tk
+from tkinter import filedialog
 import cv2
-from tkinter import Tk, Canvas, Button, filedialog, Image
-from PIL import ImageTk
+import numpy as np
+from PIL import Image, ImageTk
 
 
-def create_contour_img(image_path, min_area, min_vertices):
-    # Load the image
-    image = cv2.imread(image_path)
+def convert_to_black_and_white():
+    global original_image, displayed_image, bw_image_data
+    # Get the threshold value from the slider
+    threshold_value = threshold_slider.get()
 
     # Convert the image to grayscale
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    grayscale_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
 
-    # Apply preprocessing (optional)
-    blurred_image = cv2.GaussianBlur(gray_image, (5, 5), 0)
-    _, threshold_image = cv2.threshold(blurred_image, 100, 255, cv2.THRESH_BINARY)
+    # Apply thresholding to convert the image to black and white
+    _, bw_image = cv2.threshold(grayscale_image, threshold_value, 255, cv2.THRESH_BINARY)
 
-    # Find contours
-    contours, _ = cv2.findContours(threshold_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Convert the OpenCV image array to PIL Image
+    pil_image = Image.fromarray(bw_image)
 
-    # Process and filter contours
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        perimeter = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
+    # Resize the black and white image to fit within the GUI
+    resized_image = pil_image.resize((400, 400))
 
-        # Filter based on area and number of vertices
-        if area > min_area and len(approx) == min_vertices:
-            cv2.drawContours(image, [approx], -1, (0, 255, 0), 2)
+    # Store the black and white image data
+    bw_image_data = resized_image
 
-    # Display or save the processed image
-    cv2.imshow("Processed Image", image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-def process_image(image_path):
-    # Read the image using OpenCV
-    image = cv2.imread(image_path)
-
-    # Perform rubber gripper identification (implement your own logic here)
-    create_contour_img(image, 500, 4)
-    # Crop the image to remove unnecessary parts (implement your own logic here)
-
-    # Convert the image from OpenCV format to Tkinter-compatible format
-    processed_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    processed_image = Image.fromarray(processed_image)
-    processed_image = ImageTk.PhotoImage(processed_image)
-
-    return processed_image
-
+    # Display the black and white image in the GUI
+    displayed_image = ImageTk.PhotoImage(resized_image)
+    image_label.config(image=displayed_image)
 
 
 def open_image():
     # Open a file dialog to select the image file
-    image_path = filedialog.askopenfilename()
-    print(f'{image_path}',type(image_path))  # Print the image path for debugging
-    # Process the image and display the result on the canvas
-    processed_image = process_image(str(image_path))  # Convert the image_path object to a string
-    canvas.create_image(0, 0, anchor='nw', image=processed_image)
+    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
+    if file_path:
+        try:
+            global original_image, displayed_image, bw_image_data
+            # Load the image using OpenCV
+            original_image = cv2.imread(file_path)
+
+            # Resize the image to fit within the GUI
+            resized_image = cv2.resize(original_image, (400, 400))
+
+            # Convert the OpenCV image array to PIL Image
+            pil_image = Image.fromarray(cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB))
+
+            # Display the image in the GUI
+            displayed_image = ImageTk.PhotoImage(pil_image)
+            image_label.config(image=displayed_image)
+
+            # Clear the black and white image data
+            bw_image_data = None
+
+        except IOError:
+            print("Unable to open image")
+
+
+def update_image(*args):
+    convert_to_black_and_white()
+
+
+def find_contours():
+    global original_image, displayed_image, bw_image_data
+    if bw_image_data is not None:
+        # Ensure that the image has a single channel (grayscale)
+        if len(bw_image_data.split()) > 1:
+            bw_image_data = bw_image_data.convert("L")
+
+        # Convert the black and white image data to a NumPy array
+        bw_image = np.array(bw_image_data)
+
+        # Find contours in the black and white image
+        contours, _ = cv2.findContours(bw_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Create a copy of the original image to draw contours on
+        image_with_contours = original_image.copy()
+
+        # Draw the contours on the image
+        cv2.drawContours(image_with_contours, contours, -1, (0, 255, 0), 2)
+
+        # Convert the OpenCV image array to PIL Image
+        pil_image = Image.fromarray(cv2.cvtColor(image_with_contours, cv2.COLOR_BGR2RGB))
+
+        # Resize the image to fit within the GUI
+        resized_image = pil_image.resize((400, 400))
+
+        # Display the image with contours in the GUI
+        displayed_image = ImageTk.PhotoImage(resized_image)
+        image_label.config(image=displayed_image)
+
+
+def save_image():
+    global displayed_image
+    if displayed_image is not None:
+        # Open a file dialog to select the save path
+        file_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
+        if file_path:
+            try:
+                # Save the displayed image to the specified path
+                displayed_image.save(file_path)
+                print("Image saved successfully")
+            except IOError:
+                print("Unable to save image")
+
+
+def place_dots():
+    global original_image, displayed_image
+    if original_image is not None:
+        # Create a copy of the original image to draw dots on
+        image_with_dots = original_image.copy()
+
+        # Place the three dots on the image
+        cv2.circle(image_with_dots, (50, 50), 5, (0, 0, 255), -1)  # Red dot
+        cv2.circle(image_with_dots, (200, 200), 5, (255, 0, 0), -1)  # Blue dot
+        cv2.circle(image_with_dots, (350, 350), 5, (128, 0, 128), -1)  # Maroon dot
+
+        # Convert the OpenCV image array to PIL Image
+        pil_image = Image.fromarray(cv2.cvtColor(image_with_dots, cv2.COLOR_BGR2RGB))
+
+        # Resize the image to fit within the GUI
+        resized_image = pil_image.resize((400, 400))
+
+        # Display the image with dots in the GUI
+        displayed_image = ImageTk.PhotoImage(resized_image)
+        image_label.config(image=displayed_image)
+
 
 # Create the main window
-root = Tk()
+window = tk.Tk()
+window.title("Image Processing App")
 
-# Create a canvas to display the image
-canvas = Canvas(root, width=400, height=400)
-canvas.pack()
+# Create the file menu
+menu_bar = tk.Menu(window)
+file_menu = tk.Menu(menu_bar, tearoff=0)
+file_menu.add_command(label="Open", command=open_image)
+file_menu.add_command(label="Save", command=save_image)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=window.quit)
+menu_bar.add_cascade(label="File", menu=file_menu)
+window.config(menu=menu_bar)
 
-# Create a button to open the image file
-button = Button(root, text="Open Image", command=open_image)
-button.pack()
+# Create the image label
+image_label = tk.Label(window)
+image_label.pack()
 
+# Create the slider for thresholding
+slider_frame = tk.Frame(window)
+slider_frame.pack()
 
+threshold_slider = tk.Scale(slider_frame, from_=0, to=255, orient=tk.HORIZONTAL, length=400, command=update_image)
+threshold_slider.set(128)  # Set the initial threshold value
+threshold_slider.pack(side=tk.LEFT)
 
+increment_button = tk.Button(slider_frame, text="+", command=lambda: threshold_slider.set(threshold_slider.get() + 1))
+increment_button.pack(side=tk.LEFT, padx=5)
+
+decrement_button = tk.Button(slider_frame, text="-", command=lambda: threshold_slider.set(threshold_slider.get() - 1))
+decrement_button.pack(side=tk.LEFT, padx=5)
+
+# Create the buttons
+convert_button = tk.Button(window, text="Convert to Black and White", command=convert_to_black_and_white)
+convert_button.pack()
+
+find_contours_button = tk.Button(window, text="Find Contours", command=find_contours)
+find_contours_button.pack()
+
+# Create the save button
+save_button = tk.Button(window, text="Save Image", command=save_image)
+save_button.pack()
+
+# Create the place dots button
+place_dots_button = tk.Button(window, text="Place Dots", command=place_dots)
+place_dots_button.pack()
+
+# Initialize variables
+original_image = None
+displayed_image = None
+bw_image_data = None
 
 if __name__ == "__main__":
     # Start the GUI event loop
-    root.mainloop()
+    # Start the main event loop
+    window.mainloop()
+
 
 
