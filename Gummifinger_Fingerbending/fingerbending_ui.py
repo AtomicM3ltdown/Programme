@@ -1,12 +1,15 @@
 import cv2
 import numpy as np
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk, ImageDraw
+from skimage.color import label2rgb
+from skimage.measure import label
 
 # Global variables
 image_path = None
-threshold_value = 127
+threshold_value = 15
+min_area_threshold = 1000000  # Default minimum area threshold
 
 
 def open_image():
@@ -33,14 +36,37 @@ def process_image(image):
 
 def clean_border_and_label_regions(binary_image):
     cleaned_image = binary_image.copy()
-    _, labels, stats, _ = cv2.connectedComponentsWithStats(binary_image)
+    labeled_img = label(cleaned_image, background=0)
+    region_info = find_regions_greater_than_threshold(labeled_img, min_area_threshold)
+    # Convert the labeled image to a color image for visualization
+    labeled_color_image = label2rgb(labeled_img, bg_label=0)
 
-    # Ignore background label (index 0)
-    max_area_label = np.argmax(stats[1:, -1]) + 1
-    cleaned_image[labels != max_area_label] = 0
+    # Create a PIL Image from the labeled color image array
+    processed_with_rectangles = Image.fromarray((labeled_color_image * 255).astype(np.uint8))
 
-    region_info = stats[max_area_label]
+    # Resize the image to a suitable size for display
+    processed_with_rectangles.thumbnail((400, 400))
+
+    # Convert back to PhotoImage
+    processed_with_rectangles_img = ImageTk.PhotoImage(processed_with_rectangles)
     return cleaned_image, region_info
+
+
+def find_regions_greater_than_threshold(labeled_image, area_threshold):
+    regions = []
+    _, counts = np.unique(labeled_image, return_counts=True)
+
+    for label_val, count in enumerate(counts):
+        if label_val == 0:  # Skip the background label (index 0)
+            continue
+        if count >= area_threshold:
+            region_indices = np.where(labeled_image == label_val)
+            x_min, y_min = np.min(region_indices[1]), np.min(region_indices[0])
+            x_max, y_max = np.max(region_indices[1]), np.max(region_indices[0])
+            width, height = x_max - x_min + 1, y_max - y_min + 1
+            regions.append((x_min, y_min, width, height, count))
+
+    return regions
 
 
 def display_images(original_image, processed_image, region_info):
@@ -62,25 +88,32 @@ def display_images(original_image, processed_image, region_info):
     processed_label.config(image=processed_img)
     processed_label.image = processed_img
 
-    # Draw a rectangle around the largest region on the processed image
-    x, y, w, h = region_info[0], region_info[1], region_info[2], region_info[3]
-    processed_with_rectangle = processed_image.copy()
-    cv2.rectangle(processed_with_rectangle, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    # Draw rectangles around the dark regions greater than the area threshold on the processed image
+    processed_with_rectangles = Image.fromarray(processed_image)  # Create a PIL Image from the processed image array
+    draw = ImageDraw.Draw(processed_with_rectangles)
 
-    processed_with_rectangle_img = cv2.cvtColor(processed_with_rectangle, cv2.COLOR_BGR2RGB)
-    processed_with_rectangle_img_pil = Image.fromarray(processed_with_rectangle_img)
+    for region in region_info:
+        x, y, width, height, area = region
+        draw.rectangle([x, y, x + width, y + height], outline=1, width=5)  # Update outline color to (0, 255, 0)
 
-    draw = ImageDraw.Draw(processed_with_rectangle_img_pil)
-    draw.rectangle([x, y, x + w, y + h], outline=(0, 255, 0), width=2)
+    processed_with_rectangles.thumbnail((400, 400))  # Resize the image to a suitable size for display
 
-    processed_with_rectangle_img_pil.thumbnail((400, 400))
-    processed_with_rectangle_img = ImageTk.PhotoImage(processed_with_rectangle_img_pil)
+    processed_with_rectangles_img = ImageTk.PhotoImage(processed_with_rectangles)  # Convert back to PhotoImage
 
-    processed_with_rectangle_label.config(image=processed_with_rectangle_img)
-    processed_with_rectangle_label.image = processed_with_rectangle_img
+    processed_with_rectangle_label.config(image=processed_with_rectangles_img)
+    processed_with_rectangle_label.image = processed_with_rectangles_img
 
     # Update the region_info_label
-    region_info_label.config(text=f"Region Info: x={x}, y={y}, width={w}, height={h}")
+    if len(region_info) > 0:
+        region_info_str = "\n".join([f"x={x}, y={y}, width={width}, height={height}, area={area}" for x, y, width, height, area in region_info])
+        region_info_label.config(text=f"Region Info:\n{region_info_str}")
+    else:
+        region_info_label.config(text="Region Info: No dark regions found.")
+
+    # Update the resized_img_label
+    if "resized_img" in globals():
+        resized_img_label.config(image="")
+        resized_img_label.image = ""
 
 
 def update_threshold(value):
@@ -88,6 +121,15 @@ def update_threshold(value):
     threshold_value = value
     update_image()
     threshold_label.config(text=f"Threshold: {value}")
+
+
+def update_min_area_threshold():
+    global min_area_threshold
+    try:
+        min_area_threshold = int(min_area_entry.get())
+        update_image()
+    except ValueError:
+        messagebox.showerror("Error", "Please enter a valid integer for the minimum area threshold.")
 
 
 # Create the main GUI window
@@ -113,6 +155,18 @@ processed_with_rectangle_label.pack(pady=10)
 
 threshold_label = tk.Label(root, text="Threshold: 127")
 threshold_label.pack()
+
+min_area_frame = tk.Frame(root)
+min_area_frame.pack(pady=10)
+
+min_area_label = tk.Label(min_area_frame, text="Minimum Area Threshold:")
+min_area_label.pack(side=tk.LEFT)
+
+min_area_entry = tk.Entry(min_area_frame, width=10)
+min_area_entry.pack(side=tk.LEFT)
+
+min_area_button = tk.Button(min_area_frame, text="Update", command=update_min_area_threshold)
+min_area_button.pack(side=tk.LEFT)
 
 region_info_label = tk.Label(root, text="Region Info:")
 region_info_label.pack()
