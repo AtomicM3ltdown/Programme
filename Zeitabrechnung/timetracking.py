@@ -19,7 +19,12 @@ for index, row in df.iterrows():
     if 'Arbeitsbeginn' in entry:
         # Extract the date and time from the entry
         date = entry[15:25]
-        time = entry[28:33]
+        match = re.search(r'(\d{2}:\d{2})', entry)
+        if match:
+            time = match.group(1)
+        else:
+            print(f"⚠️ Keine gültige Uhrzeit in: {entry}")
+            continue
 
         # Check if there is a corresponding 'Arbeitsende' entry with the same date
         end_entry = df[(df['data'].str.contains('Arbeitsende')) & (df['data'].str.contains(date))]
@@ -27,6 +32,15 @@ for index, row in df.iterrows():
             # Extract the end time from the 'Arbeitsende' entry
             end_time = end_entry.iloc[0]['data'][26:31]
             # Calculate the time difference
+            print(time)
+            end_entry_str = end_entry.iloc[0]['data']
+            match_end = re.search(r'(\d{2}:\d{2})', end_entry_str)
+            if match_end:
+                end_time = match_end.group(1)
+            else:
+                print(f"⚠️ Keine gültige Endzeit in: {end_entry_str}")
+                continue
+
             begin_time = pd.to_datetime(time, format='%H:%M')
             end_time = pd.to_datetime(end_time, format='%H:%M')
             time_diff = end_time - begin_time
