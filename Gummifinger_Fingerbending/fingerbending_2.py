@@ -15,6 +15,7 @@ from skimage.segmentation import clear_border
 
 # Define some variables:
 # thresh = threshold to determine if a pixel is black or white
+#test
 thresh = 15
 label_area = 500000
 # calculate interception
