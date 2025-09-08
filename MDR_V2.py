@@ -7,6 +7,7 @@ import matplotlib as plt
 folder_path = r'D:/Nextcloud/Vulkameter/Rohdaten'
 versuche_path = 'D:/Nextcloud/Vulkameter/Versuche'
 
+#comment
 
 def load_excel_sheet(file_path, sheet_name):
     """Loads an Excel sheet into a Pandas DataFrame."""
