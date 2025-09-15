@@ -1,146 +1,216 @@
 import os
 import json
 import tkinter as tk
-from tkinter import filedialog, ttk, scrolledtext, messagebox
-import mdr_data_processing as mdr  # importiere das neue Modul
+from tkinter import filedialog, ttk, messagebox
+
+import mdr_data_processing as mdr   # eigenes Modul
 
 SETTINGS_FILE = "settings.json"
+
 
 class FolderApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Ordner Navigation & Datenverarbeitung")
-        self.geometry("1200x600")
+
+        self.title("EvaPro - Datenverarbeitung")
+        self.geometry("1200x700")
+
+        # Hauptlayout
         self.grid_columnconfigure(0, weight=1, uniform="group1")
-        self.grid_columnconfigure(1, weight=2, uniform="group1")
+        self.grid_columnconfigure(1, weight=3, uniform="group1")
         self.grid_rowconfigure(0, weight=1)
 
-        # Notebook Tabs
+        # --- Notebook (Tabs) links ---
         self.sidebar_notebook = ttk.Notebook(self)
         self.sidebar_notebook.grid(row=0, column=0, sticky="nswe")
 
+        # Tabs
         self.mdr_frame = tk.Frame(self.sidebar_notebook, bg="#f0f0f0")
         self.sidebar_notebook.add(self.mdr_frame, text="MDR")
 
         self.tensile_frame = tk.Frame(self.sidebar_notebook, bg="#f0f0f0")
         self.sidebar_notebook.add(self.tensile_frame, text="Tensile Test")
 
-        self.setup_tab(self.mdr_frame, "mdr")
+        # Tab-Inhalte aufbauen
+        self.setup_tab(self.mdr_frame, "mdr", add_process_button=True)
         self.setup_tab(self.tensile_frame, "tensile")
 
-        # Rechts: Log-Fenster und Button
-        self.right_frame = tk.Frame(self, bg="white")
-        self.right_frame.grid(row=0, column=1, sticky="nswe")
-        self.right_frame.grid_rowconfigure(0, weight=1)
-        self.right_frame.grid_columnconfigure(0, weight=1)
+        # --- Hauptbereich rechts ---
+        self.main_frame = tk.Frame(self, bg="white")
+        self.main_frame.grid(row=0, column=1, sticky="nswe")
 
-        self.log_text = scrolledtext.ScrolledText(self.right_frame, state="disabled")
-        self.log_text.grid(row=0, column=0, sticky="nswe", padx=5, pady=5)
+        # Hauptbereich Layout: oben Platz für Inhalte, unten Log
+        self.main_frame.grid_rowconfigure(0, weight=3)
+        self.main_frame.grid_rowconfigure(1, weight=1)
+        self.main_frame.grid_columnconfigure(0, weight=1)
 
-        self.process_button = tk.Button(self.right_frame, text="Daten verarbeiten", command=self.process_data)
-        self.process_button.grid(row=1, column=0, padx=20, pady=10)
+        # Log-Ausgabe
+        log_frame = tk.Frame(self.main_frame)
+        log_frame.grid(row=1, column=0, sticky="nsew")
 
+        self.log_text = tk.Text(log_frame, height=10, wrap="word", state="disabled", bg="#1e1e1e", fg="white")
+        self.log_text.pack(side="left", fill="both", expand=True)
+
+        log_scroll = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scroll.set)
+        log_scroll.pack(side="right", fill="y")
+
+        # gespeicherte Einstellungen laden
         self.settings = self.load_settings()
-        self.current_paths = {"mdr": None, "tensile": None}
 
-        # Ordnerstrukturen wiederherstellen
+        # Ordnerstruktur aus gespeicherten Pfaden wiederherstellen
         for key, tree in [("mdr", self.mdr_tree), ("tensile", self.tensile_tree)]:
             folder_path = self.settings.get(key)
             if folder_path and os.path.isdir(folder_path):
-                self.current_paths[key] = folder_path
                 self.insert_root_with_children(tree, folder_path)
 
-    # ---------------- GUI Tab Setup ----------------
-    def setup_tab(self, parent, key):
-        parent.grid_rowconfigure(2, weight=1)
+    # ---------------- Tab aufbauen ----------------
+    def setup_tab(self, parent, key, add_process_button=False):
+        parent.grid_rowconfigure(3, weight=1)
+
+        # Ordner wählen
         button = tk.Button(parent, text="Ordner wählen", command=lambda: self.choose_folder(key))
-        button.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="ew")
+        button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+        # Suchleiste mit 🔍 und ✕
+        search_frame = tk.Frame(parent)
+        search_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+        search_frame.grid_columnconfigure(0, weight=1)
 
         search_var = tk.StringVar()
-        search_entry = tk.Entry(parent, textvariable=search_var)
-        search_entry.grid(row=1, column=0, padx=10, pady=(0,5), sticky="ew")
-        search_var.trace_add("write", lambda *a, k=key, v=search_var: self.filter_tree(k, v.get()))
+        search_entry = tk.Entry(search_frame, textvariable=search_var)
+        search_entry.grid(row=0, column=0, sticky="ew")
 
+        search_btn = tk.Button(search_frame, text="🔍", command=lambda k=key: self.filter_tree(k))
+        search_btn.grid(row=0, column=1, padx=2)
+
+        clear_btn = tk.Button(search_frame, text="✕", command=lambda: self.clear_search(key))
+        clear_btn.grid(row=0, column=2, padx=2)
+
+        # Treeview
         tree = ttk.Treeview(parent)
         tree.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
+
         tree_scroll = ttk.Scrollbar(parent, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=tree_scroll.set)
         tree_scroll.grid(row=2, column=1, sticky="ns")
+
         tree.bind("<<TreeviewOpen>>", lambda e, t=tree: self.on_open_folder(e, t))
 
+        # Referenzen speichern
         if key == "mdr":
             self.mdr_tree = tree
-            self.mdr_search = search_var
-        else:
+            self.mdr_search_var = search_var
+        elif key == "tensile":
             self.tensile_tree = tree
-            self.tensile_search = search_var
+            self.tensile_search_var = search_var
 
-    # ---------------- GUI Funktionen ----------------
+        # Live-Filter während der Eingabe
+        search_var.trace("w", lambda *args, k=key: self.filter_tree(k))
+
+        # Optional: Daten bearbeiten Button im MDR-Tab
+        if add_process_button:
+            process_btn = tk.Button(parent, text="Daten bearbeiten", command=self.process_data)
+            process_btn.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+
+    # ---------------- Ordner wählen ----------------
     def choose_folder(self, key):
         folder_path = filedialog.askdirectory()
         if folder_path:
             self.settings[key] = folder_path
-            self.current_paths[key] = folder_path
             self.save_settings()
+
             tree = self.mdr_tree if key == "mdr" else self.tensile_tree
             tree.delete(*tree.get_children())
             self.insert_root_with_children(tree, folder_path)
 
+    # ---------------- Ordnerstruktur laden ----------------
     def insert_root_with_children(self, tree, folder_path):
         root_node = tree.insert("", "end", text=folder_path, values=[folder_path])
         try:
             for item in sorted(os.listdir(folder_path)):
                 fullpath = os.path.join(folder_path, item)
-                node = tree.insert(root_node, "end", text=item, values=[fullpath])
-                if os.path.isdir(fullpath):
-                    tree.insert(node, "end")  # Dummy
+                self.insert_node(tree, root_node, item, fullpath)
         except PermissionError:
             pass
         tree.item(root_node, open=True)
 
+    def insert_node(self, tree, parent, text, abspath):
+        node = tree.insert(parent, "end", text=text, values=[abspath])
+        if os.path.isdir(abspath):
+            tree.insert(node, "end")  # Dummy
+
     def on_open_folder(self, event, tree):
         node = tree.focus()
         abspath = tree.item(node, "values")[0]
+
         children = tree.get_children(node)
         if len(children) == 1 and tree.item(children[0], "values") == "":
             tree.delete(children[0])
             try:
                 for item in sorted(os.listdir(abspath)):
                     fullpath = os.path.join(abspath, item)
-                    n = tree.insert(node, "end", text=item, values=[fullpath])
-                    if os.path.isdir(fullpath):
-                        tree.insert(n, "end")
+                    self.insert_node(tree, node, item, fullpath)
             except PermissionError:
                 pass
 
-    def filter_tree(self, key, query):
+    # ---------------- Filter / Suche ----------------
+    def filter_tree(self, key):
+        search_text = (self.mdr_search_var.get() if key == "mdr" else self.tensile_search_var.get()).lower()
         tree = self.mdr_tree if key == "mdr" else self.tensile_tree
-        folder_path = self.current_paths.get(key)
-        if not folder_path:
-            return
-        tree.delete(*tree.get_children())
-        root_node = tree.insert("", "end", text=folder_path, values=[folder_path])
-        if not query.strip():
-            self.insert_root_with_children(tree, folder_path)
-            return
 
-        def search_and_insert(parent_node, current_path):
-            try:
-                for item in sorted(os.listdir(current_path)):
-                    fullpath = os.path.join(current_path, item)
-                    if query.lower() in item.lower():
-                        node = tree.insert(parent_node, "end", text=item, values=[fullpath])
-                        if os.path.isdir(fullpath):
-                            tree.insert(node, "end")
-                    elif os.path.isdir(fullpath):
-                        child_node = tree.insert(parent_node, "end", text=item, values=[fullpath])
-                        search_and_insert(child_node, fullpath)
-                        if not tree.get_children(child_node):
-                            tree.delete(child_node)
-            except PermissionError:
-                pass
-        search_and_insert(root_node, folder_path)
-        tree.item(root_node, open=True)
+        # alles zurücksetzen
+        for item in tree.get_children(""):
+            self._filter_recursive(tree, item, search_text)
+
+    def _filter_recursive(self, tree, node, search_text):
+        text = tree.item(node, "text").lower()
+        match = search_text in text if search_text else True
+
+        child_matches = False
+        for child in tree.get_children(node):
+            if self._filter_recursive(tree, child, search_text):
+                child_matches = True
+
+        if match or child_matches:
+            tree.item(node, open=bool(search_text))
+            return True
+        else:
+            tree.detach(node)
+            return False
+
+    def clear_search(self, key):
+        if key == "mdr":
+            self.mdr_search_var.set("")
+        else:
+            self.tensile_search_var.set("")
+        self.filter_tree(key)
+
+    # ---------------- Datenverarbeitung ----------------
+    def process_data(self):
+        try:
+            excel_file = filedialog.askopenfilename(
+                title="Excel-Datei auswählen", filetypes=[("Excel files", "*.xlsx")]
+            )
+            if not excel_file:
+                return
+            df_excel = mdr.load_excel_sheet(excel_file, 'Tabelle2')
+
+            folder_path = self.settings.get("mdr")
+            if folder_path:
+                versuche_path = filedialog.askdirectory(title="Zielordner für MDR auswählen")
+                if not versuche_path:
+                    return
+
+                # Dateien verschieben (nur neue)
+                mdr.move_files_to_destination_folder(folder_path, 'txt', df_excel, versuche_path, log_func=self.log)
+
+                # CSVs nur berechnen, falls nicht vorhanden
+                mdr.load_txt_files_into_dataframe(versuche_path, log_func=self.log)
+
+            messagebox.showinfo("Fertig", "MDR-Datenverarbeitung abgeschlossen!")
+        except Exception as e:
+            messagebox.showerror("Fehler", str(e))
 
     # ---------------- Settings ----------------
     def save_settings(self):
@@ -153,33 +223,13 @@ class FolderApp(tk.Tk):
                 return json.load(f)
         return {"mdr": None, "tensile": None}
 
-    # ---------------- Log Funktion ----------------
+    # ---------------- Logging ----------------
     def log(self, msg):
-        self.log_text.configure(state="normal")
-        self.log_text.insert(tk.END, str(msg) + "\n")
-        self.log_text.yview(tk.END)
-        self.log_text.configure(state="disabled")
-
-    # ---------------- Datenverarbeitung ----------------
-    def process_data(self):
-        try:
-            excel_file = filedialog.askopenfilename(title="Excel-Datei auswählen", filetypes=[("Excel files", "*.xlsx")])
-            if not excel_file:
-                return
-            df_excel = mdr.load_excel_sheet(excel_file, 'Tabelle2')
-
-            for key in ["mdr", "tensile"]:
-                folder_path = self.current_paths.get(key)
-                if folder_path:
-                    versuche_path = filedialog.askdirectory(title=f"Zielordner für {key} auswählen")
-                    if not versuche_path:
-                        continue
-                    mdr.move_files_to_destination_folder(folder_path, 'txt', df_excel, versuche_path, log_func=self.log)
-                    mdr.load_txt_files_into_dataframe(versuche_path, log_func=self.log)
-
-            messagebox.showinfo("Fertig", "Datenverarbeitung abgeschlossen!")
-        except Exception as e:
-            messagebox.showerror("Fehler", str(e))
+        self.log_text.config(state="normal")
+        self.log_text.insert("end", msg + "\n")
+        self.log_text.see("end")
+        self.log_text.config(state="disabled")
+        self.update_idletasks()
 
 
 if __name__ == "__main__":
